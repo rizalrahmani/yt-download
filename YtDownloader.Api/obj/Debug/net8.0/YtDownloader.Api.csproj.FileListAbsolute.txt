@@ -31,3 +31,4 @@ E:\Test Project\yt-download\ytdownloader.api\obj\Debug\net8.0\refint\YtDownloade
 E:\Test Project\yt-download\ytdownloader.api\obj\Debug\net8.0\YtDownloader.Api.pdb
 E:\Test Project\yt-download\ytdownloader.api\obj\Debug\net8.0\YtDownloader.Api.genruntimeconfig.cache
 E:\Test Project\yt-download\ytdownloader.api\obj\Debug\net8.0\ref\YtDownloader.Api.dll
+E:\Test Project\yt-download\ytdownloader.api\obj\Debug\net8.0\YtDownloader.Api.sourcelink.json
