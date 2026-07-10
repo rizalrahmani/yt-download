@@ -28,7 +28,10 @@ app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.MapControllers();
-app.MapHub<DownloadHub>("hub/download");
+app.MapHub<DownloadHub>("/hub/download");
 
 app.Run();
