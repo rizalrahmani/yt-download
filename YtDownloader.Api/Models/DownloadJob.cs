@@ -18,6 +18,7 @@ namespace YtDownloader.Api.Models
         public string? LastMessage { get; set; }
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
         public DateTimeOffset? FinishedAt { get; set; }
+        public DateTimeOffset? LastAccessedAt { get; set; }
 
     }
 }

@@ -64,7 +64,10 @@ namespace YtDownloader.Api.Data
               .HasColumnName("created_at");
 
         entity.Property(x => x.FinishedAt)
-              .HasColumnName("finished_at");     
+              .HasColumnName("finished_at");
+
+        entity.Property(x => x.LastAccessedAt)
+              .HasColumnName("last_accessed_at");
       });
     }
   }

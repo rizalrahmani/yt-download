@@ -156,5 +156,17 @@ namespace YtDownloader.Api.Services.Impl
         await _dbContext.SaveChangesAsync(cancellationToken);
       }
 
+      public async Task UpdateLastAccessedAsync(string id, CancellationToken cancellationToken)
+      {
+        var job = await _dbContext.DownloadJobs
+          .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+        if (job == null)
+          throw new KeyNotFoundException($"Download job dengan ID '{id}' tidak ditemukan.");
+
+        job.LastAccessedAt = DateTimeOffset.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+      }
+
     }
 }

@@ -12,5 +12,6 @@ namespace YtDownloader.Api.Services.Interface
         Task<StartDownloadResponse> StartDownloadAsync(StartDownloadRequest request, CancellationToken cancellationToken);
         Task<DownloadStatusResponse> GetDownloadStatusAsync(string id, CancellationToken cancellationToken);
         Task DeleteFileAsync(string id, CancellationToken cancellationToken);
+        Task UpdateLastAccessedAsync(string id, CancellationToken cancellationToken);
     }
 }

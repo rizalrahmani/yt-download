@@ -80,6 +80,8 @@ namespace YtDownloader.Api.Controllers
             var fileName = Path.GetFileName(status.OutputPath);
             var contentType = status.Format == "mp3" ? "audio/mpeg" : "video/mp4";
 
+            _ = _downloadService.UpdateLastAccessedAsync(id, cancellationToken);
+
             return PhysicalFile(filePath, contentType, fileName);
           }
           catch (KeyNotFoundException ex)
