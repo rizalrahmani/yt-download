@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using YtDownloader.Api.Data;
 using YtDownloader.Api.DTOs.Request;
 using YtDownloader.Api.DTOs.Response;
+using YtDownloader.Api.Hubs;
 using YtDownloader.Api.Models;
 using YtDownloader.Api.Services.Interface;
 
@@ -19,15 +21,18 @@ namespace YtDownloader.Api.Services.Impl
       private readonly ILogger<DownloadService> _logger;
       private readonly AppDbContext _dbContext;
       private readonly IServiceScopeFactory _scopeFactory;
+      private readonly IHubContext<DownloadHub> _hubContext;
 
       public DownloadService(
         ILogger<DownloadService> logger,
         AppDbContext dbContext,
-        IServiceScopeFactory scopeFactory)
+        IServiceScopeFactory scopeFactory,
+        IHubContext<DownloadHub> hubContext)
       {
         _logger = logger;
         _dbContext = dbContext;
         _scopeFactory = scopeFactory;
+        _hubContext = hubContext;
       }
 
 
@@ -49,6 +54,13 @@ namespace YtDownloader.Api.Services.Impl
 
         _dbContext.DownloadJobs.Add(job);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _hubContext.Clients.Group(job.Id).SendAsync("DownloadStatusUpdated", new
+        {
+          Id = job.Id,
+          Status = job.Status.ToString(),
+          Progress = job.Progress
+        }, cancellationToken);
 
         _ = Task.Run(() => RunDownloadAsync(job.Id));
 
@@ -106,6 +118,16 @@ namespace YtDownloader.Api.Services.Impl
         existingJob.FinishedAt = job.FinishedAt;
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        await _hubContext.Clients.Group(job.Id).SendAsync("DownloadStatusUpdated", new
+        {
+          Id = job.Id,
+          Status = job.Status.ToString(),
+          Progress = job.Progress,
+          OutputPath = job.OutputPath,
+          Error = job.Error,
+          LastMessage = job.LastMessage,
+          FinishedAt = job.FinishedAt
+        }, cancellationToken);
       }
       
       public async Task<DownloadStatusResponse> GetDownloadStatusAsync(string id, CancellationToken cancellationToken)

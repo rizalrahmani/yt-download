@@ -2,6 +2,7 @@ using YtDownloader.Api.Services.Impl;
 using YtDownloader.Api.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 using YtDownloader.Api.Data;
+using YtDownloader.Api.Hubs;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +10,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddScoped<IYtDlpService, YtDlpService>();
 builder.Services.AddScoped<IDownloadService, DownloadService>();
+builder.Services.AddSignalR();
+
 builder.Services.AddHostedService<FileCleanupService>();
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
@@ -26,5 +29,6 @@ app.UseSwaggerUI();
 app.UseHttpsRedirection();
 
 app.MapControllers();
+app.MapHub<DownloadHub>("hub/download");
 
 app.Run();
