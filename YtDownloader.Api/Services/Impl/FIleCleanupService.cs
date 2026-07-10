@@ -29,7 +29,7 @@ namespace YtDownloader.Api.Services.Impl
                     _logger.LogError(ex, "Gagal menjalankan cleanup file.");
                 }
 
-                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+                await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken);
             }
         }
 
@@ -38,7 +38,7 @@ namespace YtDownloader.Api.Services.Impl
             using var scope = _scopeFactory.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            var cutoff = DateTimeOffset.UtcNow.AddMinutes(-1);
+            var cutoff = DateTimeOffset.UtcNow.AddMinutes(-30);
 
             var expiredJobs = await dbContext.DownloadJobs
                 .Where(x => x.Status == Models.DownloadStatus.Completed
