@@ -10,10 +10,20 @@ namespace YtDownloader.Api.Services.Impl
     public sealed class YtDlpService : IYtDlpService
     {
       private readonly ILogger<YtDlpService> _logger;
+      private static readonly string ConfigFile = "/home/.yt-dlp/config";
 
       public YtDlpService(ILogger<YtDlpService> logger)
       {
         _logger = logger;
+      }
+
+      private static void AddConfigLocation(ProcessStartInfo psi)
+      {
+          if (File.Exists(ConfigFile))
+          {
+              psi.ArgumentList.Add("--config-location");
+              psi.ArgumentList.Add(ConfigFile);
+          }
       }
 
       public async Task<VideoInfoResponse> GetVideoInfoAsync(string url, CancellationToken cancellationToken)
@@ -27,8 +37,7 @@ namespace YtDownloader.Api.Services.Impl
             CreateNoWindow = true
         };
 
-        startInfo.ArgumentList.Add("--config-location");
-        startInfo.ArgumentList.Add("/home/.yt-dlp/config");
+        AddConfigLocation(startInfo);
         startInfo.ArgumentList.Add("-J");
         startInfo.ArgumentList.Add(url);
 
@@ -81,8 +90,7 @@ namespace YtDownloader.Api.Services.Impl
             CreateNoWindow = true
         };
 
-        startInfo.ArgumentList.Add("--config-location");
-        startInfo.ArgumentList.Add("/home/.yt-dlp/config");
+        AddConfigLocation(startInfo);
         startInfo.ArgumentList.Add("--newline");
         startInfo.ArgumentList.Add("--print");
         startInfo.ArgumentList.Add("after_move:filepath");
