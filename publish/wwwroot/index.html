@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YtDownloader</title>
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>YtDownloader</h1>
+            <p class="subtitle">Download video & audio dari YouTube</p>
+        </header>
+
+        <section class="input-section">
+            <form id="infoForm">
+                <input type="url" id="urlInput" placeholder="https://www.youtube.com/watch?v=..." required>
+                <button type="submit">Cari Info</button>
+            </form>
+        </section>
+
+        <section id="infoSection" class="info-section hidden">
+            <div class="video-card">
+                <img id="thumbnail" src="" alt="Thumbnail">
+                <div class="video-details">
+                    <h2 id="videoTitle"></h2>
+                    <p id="videoUploader"></p>
+                    <p id="videoDuration"></p>
+                </div>
+            </div>
+
+            <div class="download-options">
+                <form id="downloadForm">
+                    <input type="hidden" id="downloadUrl">
+                    <div class="format-group">
+                        <label>
+                            <input type="radio" name="format" value="mp4" checked> MP4
+                        </label>
+                        <label>
+                            <input type="radio" name="format" value="mp3"> MP3
+                        </label>
+                    </div>
+                    <button type="submit" id="startDownloadBtn">Download</button>
+                </form>
+            </div>
+        </section>
+
+        <section id="progressSection" class="progress-section hidden">
+            <div class="progress-info">
+                <span id="progressMessage">Memulai...</span>
+                <span id="progressPercent">0%</span>
+            </div>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <div class="action-buttons">
+                <a id="downloadFileBtn" class="btn btn-primary hidden" href="#">Download File</a>
+                <button id="deleteFileBtn" class="btn btn-danger hidden">Hapus File</button>
+            </div>
+            <div id="errorMessage" class="error hidden"></div>
+        </section>
+
+        <section id="historySection" class="history-section">
+            <h3>Riwayat Download</h3>
+            <div id="historyList" class="history-list"></div>
+        </section>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
