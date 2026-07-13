@@ -52,4 +52,4 @@ jobs:
           app-name: 'yt-downloader'
           slot-name: 'Production'
           package: .
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_BEBCF13ADE114822A3BC5ED5B7EBEAA7 }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_F3BF239A3A434D82BABD4519CB1DCBF1 }}
