@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Web;
 using YtDownloader.Api.DTOs;
 using YtDownloader.Api.Models;
 using YtDownloader.Api.Services.Interface;
@@ -10,64 +11,47 @@ namespace YtDownloader.Api.Services.Impl
     public sealed class YtDlpService : IYtDlpService
     {
       private readonly ILogger<YtDlpService> _logger;
-      private static readonly string ConfigFile = "/home/.yt-dlp/config";
+      private readonly HttpClient _httpClient;
+      private static readonly string InvidiousApi = "https://inv.nadeko.net/api/v1";
 
-      public YtDlpService(ILogger<YtDlpService> logger)
+      public YtDlpService(ILogger<YtDlpService> logger, HttpClient httpClient)
       {
         _logger = logger;
+        _httpClient = httpClient;
       }
 
-      private static void AddConfigLocation(ProcessStartInfo psi)
+      private static string ExtractVideoId(string url)
       {
-          if (File.Exists(ConfigFile))
-          {
-              psi.ArgumentList.Add("--config-location");
-              psi.ArgumentList.Add(ConfigFile);
-          }
+          var uri = new Uri(url);
+          if (uri.Host.Contains("youtu.be"))
+              return uri.AbsolutePath.TrimStart('/');
+
+          var query = HttpUtility.ParseQueryString(uri.Query);
+          return query["v"] ?? string.Empty;
       }
 
       public async Task<VideoInfoResponse> GetVideoInfoAsync(string url, CancellationToken cancellationToken)
       {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = "yt-dlp",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
+        var videoId = ExtractVideoId(url);
+        if (string.IsNullOrWhiteSpace(videoId))
+            throw new InvalidOperationException("URL YouTube tidak valid.");
 
-        AddConfigLocation(startInfo);
-        startInfo.ArgumentList.Add("-J");
-        startInfo.ArgumentList.Add(url);
+        var response = await _httpClient.GetAsync($"{InvidiousApi}/videos/{videoId}", cancellationToken);
+        response.EnsureSuccessStatusCode();
 
-        using var process = Process.Start(startInfo);
-        if (process == null)
-        {
-            throw new InvalidOperationException("Gagal menjalankan yt-dlp.");
-        }
-
-        var output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var error = await process.StandardError.ReadToEndAsync(cancellationToken);
-
-        await process.WaitForExitAsync(cancellationToken);
-
-        if (process.ExitCode != 0)
-        {
-            throw new InvalidOperationException($"yt-dlp gagal dijalankan. Kode keluar: {process.ExitCode}. Pesan kesalahan: {error}");
-        }
-
-        using var document = JsonDocument.Parse(output);
-        var root = document.RootElement;
+        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
 
         return new VideoInfoResponse
         {
-            Id = root.TryGetProperty("id", out var id) ? id.GetString() : null,
+            Id = root.TryGetProperty("videoId", out var id) ? id.GetString() : videoId,
             Title = root.TryGetProperty("title", out var title) ? title.GetString() : null,
-            Duration = root.TryGetProperty("duration", out var duration) ? duration.GetInt32() : 0,
-            Uploader = root.TryGetProperty("uploader", out var uploader) ? uploader.GetString() : null,
-            Thumbnail = root.TryGetProperty("thumbnail", out var thumbnail) ? thumbnail.GetString() : null,
-            WebpageUrl = root.TryGetProperty("webpage_url", out var webpageUrl) ? webpageUrl.GetString(): url
+            Duration = root.TryGetProperty("lengthSeconds", out var dur) ? dur.GetInt32() : 0,
+            Uploader = root.TryGetProperty("author", out var author) ? author.GetString() : null,
+            Thumbnail = root.TryGetProperty("videoThumbnails", out var thumbs) && thumbs.GetArrayLength() > 0
+                ? thumbs[0].GetProperty("url").GetString() : null,
+            WebpageUrl = url
         };
       }
 
@@ -78,101 +62,109 @@ namespace YtDownloader.Api.Services.Impl
         Directory.CreateDirectory("downloads");
 
         job.Status = DownloadStatus.Downloading;
-        job.LastMessage = "Memulai proses download...";
+        job.LastMessage = "Mendapatkan URL download...";
         await onJobUpdated(job, cancellationToken);
 
-        var startInfo = new ProcessStartInfo
+        var videoId = ExtractVideoId(job.Url);
+        if (string.IsNullOrWhiteSpace(videoId))
         {
-            FileName = "yt-dlp",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
+            job.Status = DownloadStatus.Failed;
+            job.Error = "URL YouTube tidak valid.";
+            await onJobUpdated(job, cancellationToken);
+            return;
+        }
 
-        AddConfigLocation(startInfo);
-        startInfo.ArgumentList.Add("--newline");
-        startInfo.ArgumentList.Add("--print");
-        startInfo.ArgumentList.Add("after_move:filepath");
-        startInfo.ArgumentList.Add("-o");
-        startInfo.ArgumentList.Add(Path.Combine("downloads", "%(title)s.%(ext)s"));
+        var apiResponse = await _httpClient.GetAsync($"{InvidiousApi}/videos/{videoId}", cancellationToken);
+        apiResponse.EnsureSuccessStatusCode();
+
+        var json = await apiResponse.Content.ReadAsStringAsync(cancellationToken);
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        string? downloadUrl = null;
+        string? ext = null;
 
         if (job.Format.Equals("mp3", StringComparison.OrdinalIgnoreCase))
         {
-            startInfo.ArgumentList.Add("-x");
-            startInfo.ArgumentList.Add("--audio-format");
-            startInfo.ArgumentList.Add("mp3");
+            var audioFormats = root.TryGetProperty("adaptiveFormats", out var af)
+                ? af.EnumerateArray().Where(f =>
+                    f.TryGetProperty("type", out var t) && t.GetString()?.StartsWith("audio/") == true)
+                  .ToList() : new();
+
+            var best = audioFormats.OrderByDescending(f =>
+                f.TryGetProperty("bitrate", out var br) ? br.GetInt32() : 0).FirstOrDefault();
+
+            if (best.ValueKind != JsonValueKind.Undefined)
+            {
+                downloadUrl = best.GetProperty("url").GetString();
+                ext = "mp3";
+            }
         }
         else
         {
-            startInfo.ArgumentList.Add("-f");
-            startInfo.ArgumentList.Add(
-              job.Quality.Equals("best", StringComparison.OrdinalIgnoreCase) ? "bestvideo+bestaudio/best" : job.Quality
-            );
+            var streams = root.TryGetProperty("formatStreams", out var fs)
+                ? fs.EnumerateArray().ToList() : new();
+
+            if (streams.Count > 0)
+            {
+                var best = streams
+                    .Where(s => s.TryGetProperty("container", out var c) &&
+                                c.GetString()?.Contains("mp4") == true)
+                    .OrderByDescending(s => s.TryGetProperty("resolution", out var r)
+                        ? int.TryParse(r.GetString()?.Split('x').LastOrDefault(), out var h) ? h : 0 : 0)
+                    .FirstOrDefault();
+
+                if (best.ValueKind != JsonValueKind.Undefined)
+                {
+                    downloadUrl = best.GetProperty("url").GetString();
+                    ext = "mp4";
+                }
+            }
         }
-        
-        startInfo.ArgumentList.Add(job.Url);
 
-        using var process = new Process 
-        { 
-          StartInfo = startInfo
-        };
-
-        process.OutputDataReceived += (_, e) =>
+        if (string.IsNullOrWhiteSpace(downloadUrl))
         {
-          if (string.IsNullOrWhiteSpace(e.Data))
+            job.Status = DownloadStatus.Failed;
+            job.Error = "Tidak ada format yang tersedia.";
+            await onJobUpdated(job, cancellationToken);
             return;
-
-          job.LastMessage = e.Data;
-
-          if (e.Data.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) ||
-              e.Data.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) ||
-              e.Data.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase) ||
-              e.Data.EndsWith(".webm", StringComparison.OrdinalIgnoreCase))
-          {
-            job.OutputPath = e.Data;
-          }
-          
-          var progress = ProgressHelper.TryParseProgress(e.Data);
-          if (progress.HasValue)
-          {
-            job.Progress = progress.Value;
-          }
-
-          _ = onJobUpdated(job, cancellationToken);
-        };
-
-        process.ErrorDataReceived += (_, e) =>
-        {
-          if (string.IsNullOrWhiteSpace(e.Data))
-            return;
-
-          job.LastMessage = e.Data;
-          _ = onJobUpdated(job, cancellationToken);
-        };
-
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        await process.WaitForExitAsync(cancellationToken);
-
-        if (process.ExitCode == 0)
-        {
-          job.Progress = 100;
-          job.Status = DownloadStatus.Completed;
-          job.LastMessage = "Download selesai.";
-          job.FinishedAt = DateTimeOffset.UtcNow;
-        }
-        else
-        {
-          job.Status = DownloadStatus.Failed;
-          job.Error = job.LastMessage ?? "Download gagal.";
-          job.FinishedAt = DateTimeOffset.UtcNow;
         }
 
+        job.LastMessage = "Mendownload file...";
+        await onJobUpdated(job, cancellationToken);
+
+        var title = root.TryGetProperty("title", out var t) ? t.GetString() : videoId;
+        var fileName = $"{SanitizeFileName(title)}.{ext}";
+        var filePath = Path.Combine("downloads", fileName);
+
+        using var stream = await _httpClient.GetStreamAsync(downloadUrl, cancellationToken);
+        using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+
+        var buffer = new byte[8192];
+        long totalRead = 0;
+        int bytesRead;
+        while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+        {
+            await fileStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
+            totalRead += bytesRead;
+
+            job.Progress = Math.Min(99, (int)(totalRead / 1024 / 1024 * 5));
+            job.LastMessage = $"Mendownload... ({totalRead / 1024 / 1024} MB)";
+        }
+
+        job.Progress = 100;
+        job.Status = DownloadStatus.Completed;
+        job.OutputPath = filePath;
+        job.LastMessage = "Download selesai.";
+        job.FinishedAt = DateTimeOffset.UtcNow;
         await onJobUpdated(job, cancellationToken);
       }
 
+      private static string SanitizeFileName(string name)
+      {
+          foreach (var c in Path.GetInvalidFileNameChars())
+              name = name.Replace(c, '_');
+          return name.Length > 100 ? name[..100] : name;
+      }
     }
 }

@@ -8,7 +8,7 @@ using YtDownloader.Api.Hubs;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
-builder.Services.AddScoped<IYtDlpService, YtDlpService>();
+builder.Services.AddHttpClient<IYtDlpService, YtDlpService>();
 builder.Services.AddScoped<IDownloadService, DownloadService>();
 builder.Services.AddSignalR();
 
