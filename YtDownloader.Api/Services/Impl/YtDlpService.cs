@@ -29,6 +29,8 @@ namespace YtDownloader.Api.Services.Impl
 
         startInfo.ArgumentList.Add("--js-runtimes");
         startInfo.ArgumentList.Add("deno:/usr/local/bin/deno");
+        startInfo.ArgumentList.Add("--cookies");
+        startInfo.ArgumentList.Add("/home/cookies.txt");
         startInfo.ArgumentList.Add("-J");
         startInfo.ArgumentList.Add(url);
 
@@ -83,6 +85,8 @@ namespace YtDownloader.Api.Services.Impl
 
         startInfo.ArgumentList.Add("--js-runtimes");
         startInfo.ArgumentList.Add("deno:/usr/local/bin/deno");
+        startInfo.ArgumentList.Add("--cookies");
+        startInfo.ArgumentList.Add("/home/cookies.txt");
         startInfo.ArgumentList.Add("--newline");
         startInfo.ArgumentList.Add("--print");
         startInfo.ArgumentList.Add("after_move:filepath");
