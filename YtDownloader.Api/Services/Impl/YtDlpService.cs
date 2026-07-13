@@ -26,10 +26,8 @@ namespace YtDownloader.Api.Services.Impl
             UseShellExecute = false,
             CreateNoWindow = true
         };
-
-        startInfo.ArgumentList.Add("--js-runtimes");
         startInfo.ArgumentList.Add("deno:/usr/local/bin/deno");
-        startInfo.ArgumentList.Add("--cookies");
+        startInfo.ArgumentList.Add("--config-location etc/yt-dlp/config");
         startInfo.ArgumentList.Add("/home/cookies.txt");
         startInfo.ArgumentList.Add("-J");
         startInfo.ArgumentList.Add(url);
